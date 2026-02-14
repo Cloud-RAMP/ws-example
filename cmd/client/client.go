@@ -11,7 +11,7 @@ import (
 
 // Runs a simple client that connects to the web socket server and sends / receives messages
 func main() {
-	// Create a context with a timeout
+	// Create a context with a timeout. Cancel dial if not met within 5 seconds
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 

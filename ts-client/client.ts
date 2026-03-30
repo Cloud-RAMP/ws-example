@@ -18,7 +18,7 @@ function ensureConnection(socket: WebSocket): Promise<void> {
 // "main" function
 (async () => {
     // Establish initial connection
-    const socket = new WebSocket("ws://localhost:8080");
+    const socket = new WebSocket("ws://ab88.cloudramp.com:8080/awkdhawdw");
     await ensureConnection(socket);
 
     // Receive the first message then close

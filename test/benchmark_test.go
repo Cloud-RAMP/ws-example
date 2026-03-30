@@ -2,6 +2,7 @@ package benchmark_test
 
 import (
 	"bytes"
+	"net"
 	"testing"
 	"time"
 
@@ -92,4 +93,60 @@ func BenchmarkServerOneClient(b *testing.B) {
 			}
 		}
 	}
+}
+
+var NUM_CONNECTIONS = 5000
+
+func BenchmarkServerNConnections(b *testing.B) {
+	server.LogLevel = server.None
+
+	ctx := b.Context()
+	go server.Start(ctx)
+
+	time.Sleep(500 * time.Millisecond)
+
+	if NUM_CONNECTIONS <= 0 {
+		b.Fatalf("NUM_CONNECTIONS must be > 0, got %d", NUM_CONNECTIONS)
+	}
+
+	clients := make([]net.Conn, 0, NUM_CONNECTIONS)
+	for i := 0; i < NUM_CONNECTIONS; i++ {
+		conn, _, _, err := ws.Dialer{}.Dial(ctx, "ws://localhost:8080")
+		if err != nil {
+			b.Fatalf("Failed to connect client %d: %v", i, err)
+		}
+		clients = append(clients, conn)
+	}
+	defer func() {
+		for _, c := range clients {
+			_ = c.Close()
+		}
+	}()
+
+	message := []byte("Hello, WebSocket server!")
+	b.ResetTimer()
+
+	ops := 0
+	for b.Loop() {
+		for i, conn := range clients {
+			err := wsutil.WriteClientMessage(conn, ws.OpText, message)
+			if err != nil {
+				b.Fatalf("Failed to send message from client %d: %v", i, err)
+			}
+
+			messages, err := wsutil.ReadServerMessage(conn, nil)
+			if err != nil {
+				b.Fatalf("Failed to recieve message for client %d: %v", i, err)
+			}
+
+			for _, msg := range messages {
+				if !bytes.Equal(msg.Payload, message) {
+					b.Fatalf("Message and response not equal for client %d", i)
+				}
+			}
+			ops += 1
+		}
+	}
+
+	b.ReportMetric(float64(ops)/float64(b.Elapsed().Seconds()), "ops/s")
 }
